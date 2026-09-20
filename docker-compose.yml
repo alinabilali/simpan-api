@@ -1,0 +1,8 @@
+services:
+  api:
+    build: .
+    ports:
+      - '5001:5000'
+    env_file: .env
+    environment:
+      - DATABASE_URI=mongodb+srv://alinabila:aa126a002@cluster0.rvxl9sq.mongodb.net/?appName=Cluster0

@@ -5,7 +5,15 @@
   "main": "server.js",
   "scripts": {
     "start": "node server",
-    "dev": "nodemon server"
+    "dev": "nodemon server",
+    "test": "jest"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "setupFiles": [
+      "<rootDir>/tests/setEnv.js"
+    ],
+    "testTimeout": 120000
   },
   "keywords": [],
   "author": "",
@@ -28,6 +36,9 @@
     "uuid": "^9.0.0"
   },
   "devDependencies": {
-    "nodemon": "^2.0.20"
+    "jest": "^30.5.2",
+    "mongodb-memory-server": "^11.2.0",
+    "nodemon": "^2.0.20",
+    "supertest": "^7.2.2"
   }
 }

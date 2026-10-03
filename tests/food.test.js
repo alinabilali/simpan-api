@@ -173,6 +173,19 @@ describe('DELETE /food', () => {
     const res = await request(app).delete('/food').set(auth(token)).send({});
     expect(res.statusCode).toBe(400);
   });
+
+  test('reply includes the food name', async () => {
+    const { token, userId } = await createUserAndToken();
+    const food = await Food.create(foodData(userId, { name: 'Yogurt' }));
+
+    const res = await request(app)
+      .delete('/food')
+      .set(auth(token))
+      .send({ id: food.id });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toContain('Yogurt');
+  });
 });
 
 describe('DELETE /food/deleteAllFood', () => {

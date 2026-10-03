@@ -274,3 +274,44 @@ describe('GET /food/expiredFood', () => {
     expect(res.statusCode).toBe(400);
   });
 });
+
+describe('ownership', () => {
+  test("a user cannot update someone else's food (403)", async () => {
+    const userA = await createUserAndToken('ali');
+    const userB = await createUserAndToken('sam');
+    const food = await Food.create(foodData(userA.userId));
+
+    const res = await request(app)
+      .patch('/food')
+      .set(auth(userB.token))
+      .send({ ...foodData(userA.userId, { name: 'Hijacked' }), id: food.id });
+
+    expect(res.statusCode).toBe(403);
+  });
+
+  test("a user cannot delete someone else's food (403)", async () => {
+    const userA = await createUserAndToken('ali');
+    const userB = await createUserAndToken('sam');
+    const food = await Food.create(foodData(userA.userId));
+
+    const res = await request(app)
+      .delete('/food')
+      .set(auth(userB.token))
+      .send({ id: food.id });
+
+    expect(res.statusCode).toBe(403);
+  });
+
+  test("GET /food only returns the logged-in user's items", async () => {
+    const userA = await createUserAndToken('ali');
+    const userB = await createUserAndToken('sam');
+    await Food.create(foodData(userA.userId, { name: 'Alis milk' }));
+    await Food.create(foodData(userB.userId, { name: 'Sams milk' }));
+
+    const res = await request(app).get('/food').set(auth(userA.token));
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toHaveLength(1);
+    expect(res.body[0].name).toBe('Alis milk');
+  });
+});

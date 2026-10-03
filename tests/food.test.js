@@ -138,6 +138,20 @@ describe('PATCH /food', () => {
     expect(res.statusCode).toBe(400);
     expect(res.body.message).toBe('Food not found');
   });
+
+  test('returns 500 on an unexpected server error', async () => {
+    const { token } = await createUserAndToken();
+    const res = await request(app).patch('/food').set(auth(token)).send({
+      id: 'not-a-valid-object-id',
+      user: 'also-not-valid',
+      name: 'Milk',
+      dateExpiry: '2030-01-01',
+      category: 'Dairy',
+      place: 'Fridge',
+      quantity: '2',
+    });
+    expect(res.statusCode).toBe(500);
+  });
 });
 
 describe('DELETE /food', () => {
@@ -158,6 +172,19 @@ describe('DELETE /food', () => {
     const { token } = await createUserAndToken();
     const res = await request(app).delete('/food').set(auth(token)).send({});
     expect(res.statusCode).toBe(400);
+  });
+
+  test('reply includes the food name', async () => {
+    const { token, userId } = await createUserAndToken();
+    const food = await Food.create(foodData(userId, { name: 'Yogurt' }));
+
+    const res = await request(app)
+      .delete('/food')
+      .set(auth(token))
+      .send({ id: food.id });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toContain('Yogurt');
   });
 });
 
@@ -202,5 +229,48 @@ describe('auth guard on /food', () => {
     );
     const res = await request(app).get('/food').set(auth(expired));
     expect(res.statusCode).toBe(403);
+  });
+
+  test('returns 500 on an unexpected server error', async () => {
+    const { token } = await createUserAndToken();
+    const res = await request(app).patch('/food').set(auth(token)).send({
+      id: 'not-a-valid-object-id',
+      user: 'also-not-valid',
+      name: 'Milk',
+      dateExpiry: '2030-01-01',
+      category: 'Dairy',
+      place: 'Fridge',
+      quantity: '2',
+    });
+    expect(res.statusCode).toBe(500);
+  });
+});
+
+describe('GET /food/expiredFood', () => {
+  test('returns only expired items with the owner username', async () => {
+    const { token, userId } = await createUserAndToken();
+    await Food.create(
+      foodData(userId, { name: 'Old', dateExpiry: '2000-01-01' }),
+    );
+    await Food.create(
+      foodData(userId, { name: 'Fresh', dateExpiry: '2030-01-01' }),
+    );
+
+    const res = await request(app).get('/food/expiredFood').set(auth(token));
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toHaveLength(1);
+    expect(res.body[0].name).toBe('Old');
+    expect(res.body[0].username).toBe('ali');
+  });
+
+  test('returns 400 when nothing is expired', async () => {
+    const { token, userId } = await createUserAndToken();
+    await Food.create(
+      foodData(userId, { name: 'Fresh', dateExpiry: '2030-01-01' }),
+    );
+
+    const res = await request(app).get('/food/expiredFood').set(auth(token));
+    expect(res.statusCode).toBe(400);
   });
 });

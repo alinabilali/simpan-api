@@ -47,6 +47,12 @@ describe('POST /auth/signup', () => {
     const res = await request(app).post('/auth/signup').send(validUser);
     expect(res.statusCode).toBe(409);
   });
+
+  test('new user defaults to verified: false', async () => {
+    await request(app).post('/auth/signup').send(validUser);
+    const user = await User.findOne({ username: validUser.username });
+    expect(user.verified).toBe(false);
+  });
 });
 
 describe('POST /auth (login)', () => {

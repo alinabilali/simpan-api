@@ -32,13 +32,13 @@ const login = asyncHandler(async (req, res) => {
       },
     },
     process.env.ACCESS_TOKEN_SECRET,
-    { expiresIn: '7d' }
+    { expiresIn: '7d' },
   );
 
   const refreshToken = jwt.sign(
     { username: foundUser.username },
     process.env.REFRESH_TOKEN_SECRET,
-    { expiresIn: '7d' }
+    { expiresIn: '7d' },
   );
 
   // Create secure cookie with refresh token
@@ -84,11 +84,11 @@ const refresh = (req, res) => {
           },
         },
         process.env.ACCESS_TOKEN_SECRET,
-        { expiresIn: '7d' }
+        { expiresIn: '7d' },
       );
 
       res.json({ accessToken });
-    })
+    }),
   );
 };
 
@@ -122,7 +122,7 @@ const forgotPassword = asyncHandler(async (req, res) => {
   const resetToken = jwt.sign(
     { userId: foundUser.id },
     process.env.RESET_TOKEN_SECRET,
-    { expiresIn: '1h' }
+    { expiresIn: '1h' },
   );
 
   // Create the password reset URL
@@ -195,13 +195,13 @@ const signup = asyncHandler(async (req, res) => {
       },
     },
     process.env.ACCESS_TOKEN_SECRET,
-    { expiresIn: '7d' }
+    { expiresIn: '7d' },
   );
 
   const refreshToken = jwt.sign(
     { username: newUser.username },
     process.env.REFRESH_TOKEN_SECRET,
-    { expiresIn: '7d' }
+    { expiresIn: '7d' },
   );
 
   // Create secure cookie with refresh token

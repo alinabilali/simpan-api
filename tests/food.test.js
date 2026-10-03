@@ -245,3 +245,32 @@ describe('auth guard on /food', () => {
     expect(res.statusCode).toBe(500);
   });
 });
+
+describe('GET /food/expiredFood', () => {
+  test('returns only expired items with the owner username', async () => {
+    const { token, userId } = await createUserAndToken();
+    await Food.create(
+      foodData(userId, { name: 'Old', dateExpiry: '2000-01-01' }),
+    );
+    await Food.create(
+      foodData(userId, { name: 'Fresh', dateExpiry: '2030-01-01' }),
+    );
+
+    const res = await request(app).get('/food/expiredFood').set(auth(token));
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toHaveLength(1);
+    expect(res.body[0].name).toBe('Old');
+    expect(res.body[0].username).toBe('ali');
+  });
+
+  test('returns 400 when nothing is expired', async () => {
+    const { token, userId } = await createUserAndToken();
+    await Food.create(
+      foodData(userId, { name: 'Fresh', dateExpiry: '2030-01-01' }),
+    );
+
+    const res = await request(app).get('/food/expiredFood').set(auth(token));
+    expect(res.statusCode).toBe(400);
+  });
+});

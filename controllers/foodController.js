@@ -122,7 +122,7 @@ const deleteFood = asyncHandler(async (req, res) => {
 const getExpiredFood = asyncHandler(async (req, res) => {
   // Get all food from MongoDB
   const today = new Date();
-  const foods = await Food.find((expiry) => expiry <= today).lean();
+  const foods = await Food.find({ dateExpiry: { $lte: today } }).lean();
 
   // If no food
   if (!foods?.length) {
@@ -132,7 +132,8 @@ const getExpiredFood = asyncHandler(async (req, res) => {
   const foodWithUser = await Promise.all(
     foods.map(async (food) => {
       const user = await User.findById(food.user).lean().exec();
-      return { ...food, username: user.username };
+      const username = user ? user.username : null;
+      return { ...food, username };
     }),
   );
 

@@ -14,4 +14,6 @@ router
 
 router.delete('/deleteAllFood', foodController.deleteAllFood);
 
+router.get('/expiredFood', foodController.getExpiredFood);
+
 module.exports = router;

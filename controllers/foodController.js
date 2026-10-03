@@ -20,7 +20,7 @@ const getAllFood = asyncHandler(async (req, res) => {
       const user = await User.findById(food.user).lean().exec();
       const username = user ? user.username : null;
       return { ...food, username };
-    })
+    }),
   );
 
   res.json(foodWithUser);
@@ -33,7 +33,7 @@ const createNewFood = asyncHandler(async (req, res) => {
   const { user, name, dateExpiry, category, place, quantity } = req.body;
 
   // Confirm data
-  if ((!user || !name || !dateExpiry || !category || !place, !quantity)) {
+  if (!user || !name || !dateExpiry || !category || !place || !quantity) {
     return res.status(400).json({ message: 'All fields are required' });
   }
 
@@ -111,7 +111,7 @@ const deleteFood = asyncHandler(async (req, res) => {
 
   const result = await food.deleteOne();
 
-  const reply = `Food '${result.title}' with ID ${result._id} deleted`;
+  const reply = `Food '${result.name}' with ID ${result._id} deleted`;
 
   res.json(reply);
 });
@@ -133,7 +133,7 @@ const getExpiredFood = asyncHandler(async (req, res) => {
     foods.map(async (food) => {
       const user = await User.findById(food.user).lean().exec();
       return { ...food, username: user.username };
-    })
+    }),
   );
 
   res.json(foodWithUser);

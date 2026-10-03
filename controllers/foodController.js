@@ -2,44 +2,39 @@ const Food = require('../models/Food');
 const User = require('../models/User');
 const asyncHandler = require('express-async-handler');
 
-// @desc Get all Food
-// @route GET /getAllFood
+// @desc Get all food for the logged-in user
+// @route GET /food
 // @access Private
 const getAllFood = asyncHandler(async (req, res) => {
-  // Get all FoodgetAllFood from MongoDB
-  const foods = await Food.find().lean();
+  const owner = await User.findOne({ username: req.user }).lean().exec();
+  if (!owner) return res.status(401).json({ message: 'Unauthorized' });
 
-  // If no getAllFood
+  const foods = await Food.find({ user: owner._id }).lean();
+
   if (!foods?.length) {
     return res.status(400).json({ message: 'No food found' });
   }
 
-  // Add username to each food before sending the response
-  const foodWithUser = await Promise.all(
-    foods.map(async (food) => {
-      const user = await User.findById(food.user).lean().exec();
-      const username = user ? user.username : null;
-      return { ...food, username };
-    }),
-  );
+  const foodWithUser = foods.map((food) => ({ ...food, username: req.user }));
 
   res.json(foodWithUser);
 });
 
-// @desc Create new food
+// @desc Create new food for the logged-in user
 // @route POST /food
 // @access Private
 const createNewFood = asyncHandler(async (req, res) => {
-  const { user, name, dateExpiry, category, place, quantity } = req.body;
+  const { name, dateExpiry, category, place, quantity } = req.body;
 
-  // Confirm data
-  if (!user || !name || !dateExpiry || !category || !place || !quantity) {
+  if (!name || !dateExpiry || !category || !place || !quantity) {
     return res.status(400).json({ message: 'All fields are required' });
   }
 
-  // Create and store the new user
+  const owner = await User.findOne({ username: req.user }).exec();
+  if (!owner) return res.status(401).json({ message: 'Unauthorized' });
+
   const food = await Food.create({
-    user,
+    user: owner._id, // taken from the verified token, never the request body
     name,
     dateExpiry,
     category,
@@ -48,36 +43,32 @@ const createNewFood = asyncHandler(async (req, res) => {
   });
 
   if (food) {
-    // Created
     return res.status(201).json({ message: 'New food added' });
   } else {
     return res.status(400).json({ message: 'Invalid food data received' });
   }
 });
 
-// @desc Update a food
+// @desc Update a food item owned by the logged-in user
 // @route PATCH /food
 const updateFood = asyncHandler(async (req, res) => {
-  const { id, user, name, dateExpiry, category, place, quantity } = req.body;
+  const { id, name, dateExpiry, category, place, quantity } = req.body;
 
-  // Confirm data
-  if (
-    !id ||
-    !user ||
-    !name ||
-    !dateExpiry ||
-    !category ||
-    !place ||
-    !quantity
-  ) {
+  if (!id || !name || !dateExpiry || !category || !place || !quantity) {
     return res.status(400).json({ message: 'All fields are required' });
   }
 
-  // Confirm food exists to update
+  const owner = await User.findOne({ username: req.user }).exec();
+  if (!owner) return res.status(401).json({ message: 'Unauthorized' });
+
   const food = await Food.findById(id).exec();
 
   if (!food) {
     return res.status(400).json({ message: 'Food not found' });
+  }
+
+  if (food.user.toString() !== owner._id.toString()) {
+    return res.status(403).json({ message: 'Forbidden' });
   }
 
   food.name = name;
@@ -91,22 +82,27 @@ const updateFood = asyncHandler(async (req, res) => {
   res.json(`'${updatedFood.name}' updated`);
 });
 
-// @desc Delete a food
+// @desc Delete a food item owned by the logged-in user
 // @route DELETE /food
 // @access Private
 const deleteFood = asyncHandler(async (req, res) => {
   const { id } = req.body;
 
-  // Confirm data
   if (!id) {
     return res.status(400).json({ message: 'Food ID required' });
   }
 
-  // Confirm food exists to delete
+  const owner = await User.findOne({ username: req.user }).exec();
+  if (!owner) return res.status(401).json({ message: 'Unauthorized' });
+
   const food = await Food.findById(id).exec();
 
   if (!food) {
     return res.status(400).json({ message: 'Food not found' });
+  }
+
+  if (food.user.toString() !== owner._id.toString()) {
+    return res.status(403).json({ message: 'Forbidden' });
   }
 
   const result = await food.deleteOne();
@@ -116,37 +112,40 @@ const deleteFood = asyncHandler(async (req, res) => {
   res.json(reply);
 });
 
-// @desc Get all expired food
-// @route GET /expiredFood
+// @desc Get expired food for the logged-in user
+// @route GET /food/expiredFood
 // @access Private
 const getExpiredFood = asyncHandler(async (req, res) => {
-  // Get all food from MongoDB
-  const today = new Date();
-  const foods = await Food.find({ dateExpiry: { $lte: today } }).lean();
+  const owner = await User.findOne({ username: req.user }).lean().exec();
+  if (!owner) return res.status(401).json({ message: 'Unauthorized' });
 
-  // If no food
+  const today = new Date();
+  const foods = await Food.find({
+    user: owner._id,
+    dateExpiry: { $lte: today },
+  }).lean();
+
   if (!foods?.length) {
     return res.status(400).json({ message: 'No food found' });
   }
 
-  const foodWithUser = await Promise.all(
-    foods.map(async (food) => {
-      const user = await User.findById(food.user).lean().exec();
-      const username = user ? user.username : null;
-      return { ...food, username };
-    }),
-  );
+  const foodWithUser = foods.map((food) => ({ ...food, username: req.user }));
 
   res.json(foodWithUser);
 });
 
-// @desc Delete all expired food
+// @desc Delete all expired food for the logged-in user
 // @route DELETE /deleteAllFood
 // @access Private
 const deleteAllFood = asyncHandler(async (req, res) => {
-  // Get all expired food from MongoDB
+  const owner = await User.findOne({ username: req.user }).exec();
+  if (!owner) return res.status(401).json({ message: 'Unauthorized' });
+
   const today = new Date();
-  const result = await Food.deleteMany({ dateExpiry: { $lte: today } });
+  const result = await Food.deleteMany({
+    user: owner._id,
+    dateExpiry: { $lte: today },
+  });
 
   const reply = `${result.deletedCount} expired food items deleted`;
 

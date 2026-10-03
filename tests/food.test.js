@@ -138,6 +138,20 @@ describe('PATCH /food', () => {
     expect(res.statusCode).toBe(400);
     expect(res.body.message).toBe('Food not found');
   });
+
+  test('returns 500 on an unexpected server error', async () => {
+    const { token } = await createUserAndToken();
+    const res = await request(app).patch('/food').set(auth(token)).send({
+      id: 'not-a-valid-object-id',
+      user: 'also-not-valid',
+      name: 'Milk',
+      dateExpiry: '2030-01-01',
+      category: 'Dairy',
+      place: 'Fridge',
+      quantity: '2',
+    });
+    expect(res.statusCode).toBe(500);
+  });
 });
 
 describe('DELETE /food', () => {
@@ -202,5 +216,19 @@ describe('auth guard on /food', () => {
     );
     const res = await request(app).get('/food').set(auth(expired));
     expect(res.statusCode).toBe(403);
+  });
+
+  test('returns 500 on an unexpected server error', async () => {
+    const { token } = await createUserAndToken();
+    const res = await request(app).patch('/food').set(auth(token)).send({
+      id: 'not-a-valid-object-id',
+      user: 'also-not-valid',
+      name: 'Milk',
+      dateExpiry: '2030-01-01',
+      category: 'Dairy',
+      place: 'Fridge',
+      quantity: '2',
+    });
+    expect(res.statusCode).toBe(500);
   });
 });

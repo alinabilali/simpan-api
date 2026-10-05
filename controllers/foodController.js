@@ -34,7 +34,7 @@ const createNewFood = asyncHandler(async (req, res) => {
   if (!owner) return res.status(401).json({ message: 'Unauthorized' });
 
   const food = await Food.create({
-    user: owner._id,
+    user: owner._id, // taken from the verified token, never the request body
     name,
     dateExpiry,
     category,

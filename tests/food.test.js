@@ -1,40 +1,19 @@
 const request = require('supertest');
 const mongoose = require('mongoose');
-const { MongoMemoryServer } = require('mongodb-memory-server');
 const app = require('../app');
-const User = require('../models/User');
 const Food = require('../models/Food');
 const jwt = require('jsonwebtoken');
+const {
+  connect,
+  clear,
+  disconnect,
+  auth,
+  signupAndLogin,
+} = require('./helpers');
 
-let mongo;
-
-beforeAll(async () => {
-  mongo = await MongoMemoryServer.create();
-  await mongoose.connect(mongo.getUri());
-});
-
-afterEach(async () => {
-  await Food.deleteMany({});
-  await User.deleteMany({});
-});
-
-afterAll(async () => {
-  await mongoose.disconnect();
-  await mongo.stop();
-});
-
-async function createUserAndToken(username = 'ali') {
-  const res = await request(app)
-    .post('/auth/signup')
-    .send({
-      username,
-      password: 'Passw0rd!',
-      name: 'Ali',
-      email: `${username}@example.com`,
-    });
-  const user = await User.findOne({ username });
-  return { token: res.body.accessToken, userId: user._id.toString() };
-}
+beforeAll(connect);
+afterEach(clear);
+afterAll(disconnect);
 
 const foodData = (userId, overrides = {}) => ({
   user: userId,
@@ -46,25 +25,16 @@ const foodData = (userId, overrides = {}) => ({
   ...overrides,
 });
 
-const auth = (token) => ({ Authorization: `Bearer ${token}` });
-
-describe('auth guard on /food', () => {
-  test('rejects a request without a token (401)', async () => {
-    const res = await request(app).get('/food').set(auth('not-a-real-token'));
-    expect(res.statusCode).toBe(403);
-  });
-});
-
 describe('GET /food', () => {
   test('returns 400 with a message when there is no food', async () => {
-    const { token } = await createUserAndToken();
+    const { token } = await signupAndLogin();
     const res = await request(app).get('/food').set(auth(token));
     expect(res.statusCode).toBe(400);
     expect(res.body.message).toBe('No food found');
   });
 
   test('returns food with the owner username attached', async () => {
-    const { token, userId } = await createUserAndToken();
+    const { token, userId } = await signupAndLogin();
     await Food.create(foodData(userId));
 
     const res = await request(app).get('/food').set(auth(token));
@@ -78,7 +48,7 @@ describe('GET /food', () => {
 
 describe('POST /food', () => {
   test('creates a food item (201)', async () => {
-    const { token, userId } = await createUserAndToken();
+    const { token, userId } = await signupAndLogin();
 
     const res = await request(app)
       .post('/food')
@@ -90,7 +60,7 @@ describe('POST /food', () => {
   });
 
   test('rejects a missing quantity (400)', async () => {
-    const { token, userId } = await createUserAndToken();
+    const { token, userId } = await signupAndLogin();
 
     const res = await request(app)
       .post('/food')
@@ -101,7 +71,7 @@ describe('POST /food', () => {
   });
 
   test('rejects a missing name (400)', async () => {
-    const { token, userId } = await createUserAndToken();
+    const { token, userId } = await signupAndLogin();
 
     const res = await request(app)
       .post('/food')
@@ -114,7 +84,7 @@ describe('POST /food', () => {
 
 describe('PATCH /food', () => {
   test('updates an existing food item', async () => {
-    const { token, userId } = await createUserAndToken();
+    const { token, userId } = await signupAndLogin();
     const food = await Food.create(foodData(userId));
 
     const res = await request(app)
@@ -128,7 +98,7 @@ describe('PATCH /food', () => {
   });
 
   test('returns 400 for an unknown id', async () => {
-    const { token, userId } = await createUserAndToken();
+    const { token, userId } = await signupAndLogin();
 
     const res = await request(app)
       .patch('/food')
@@ -140,7 +110,7 @@ describe('PATCH /food', () => {
   });
 
   test('returns 500 on an unexpected server error', async () => {
-    const { token } = await createUserAndToken();
+    const { token } = await signupAndLogin();
     const res = await request(app).patch('/food').set(auth(token)).send({
       id: 'not-a-valid-object-id',
       user: 'also-not-valid',
@@ -156,7 +126,7 @@ describe('PATCH /food', () => {
 
 describe('DELETE /food', () => {
   test('deletes an existing food item', async () => {
-    const { token, userId } = await createUserAndToken();
+    const { token, userId } = await signupAndLogin();
     const food = await Food.create(foodData(userId));
 
     const res = await request(app)
@@ -169,13 +139,13 @@ describe('DELETE /food', () => {
   });
 
   test('requires an id (400)', async () => {
-    const { token } = await createUserAndToken();
+    const { token } = await signupAndLogin();
     const res = await request(app).delete('/food').set(auth(token)).send({});
     expect(res.statusCode).toBe(400);
   });
 
   test('reply includes the food name', async () => {
-    const { token, userId } = await createUserAndToken();
+    const { token, userId } = await signupAndLogin();
     const food = await Food.create(foodData(userId, { name: 'Yogurt' }));
 
     const res = await request(app)
@@ -190,7 +160,7 @@ describe('DELETE /food', () => {
 
 describe('DELETE /food/deleteAllFood', () => {
   test('deletes only expired items', async () => {
-    const { token, userId } = await createUserAndToken();
+    const { token, userId } = await signupAndLogin();
     await Food.create(
       foodData(userId, { name: 'Old', dateExpiry: '2000-01-01' }),
     );
@@ -230,25 +200,11 @@ describe('auth guard on /food', () => {
     const res = await request(app).get('/food').set(auth(expired));
     expect(res.statusCode).toBe(403);
   });
-
-  test('returns 500 on an unexpected server error', async () => {
-    const { token } = await createUserAndToken();
-    const res = await request(app).patch('/food').set(auth(token)).send({
-      id: 'not-a-valid-object-id',
-      user: 'also-not-valid',
-      name: 'Milk',
-      dateExpiry: '2030-01-01',
-      category: 'Dairy',
-      place: 'Fridge',
-      quantity: '2',
-    });
-    expect(res.statusCode).toBe(500);
-  });
 });
 
 describe('GET /food/expiredFood', () => {
   test('returns only expired items with the owner username', async () => {
-    const { token, userId } = await createUserAndToken();
+    const { token, userId } = await signupAndLogin();
     await Food.create(
       foodData(userId, { name: 'Old', dateExpiry: '2000-01-01' }),
     );
@@ -265,7 +221,7 @@ describe('GET /food/expiredFood', () => {
   });
 
   test('returns 400 when nothing is expired', async () => {
-    const { token, userId } = await createUserAndToken();
+    const { token, userId } = await signupAndLogin();
     await Food.create(
       foodData(userId, { name: 'Fresh', dateExpiry: '2030-01-01' }),
     );
@@ -277,8 +233,8 @@ describe('GET /food/expiredFood', () => {
 
 describe('ownership', () => {
   test("a user cannot update someone else's food (403)", async () => {
-    const userA = await createUserAndToken('ali');
-    const userB = await createUserAndToken('sam');
+    const userA = await signupAndLogin('ali');
+    const userB = await signupAndLogin('sam');
     const food = await Food.create(foodData(userA.userId));
 
     const res = await request(app)
@@ -290,8 +246,8 @@ describe('ownership', () => {
   });
 
   test("a user cannot delete someone else's food (403)", async () => {
-    const userA = await createUserAndToken('ali');
-    const userB = await createUserAndToken('sam');
+    const userA = await signupAndLogin('ali');
+    const userB = await signupAndLogin('sam');
     const food = await Food.create(foodData(userA.userId));
 
     const res = await request(app)
@@ -303,15 +259,15 @@ describe('ownership', () => {
   });
 
   test("GET /food only returns the logged-in user's items", async () => {
-    const userA = await createUserAndToken('ali');
-    const userB = await createUserAndToken('sam');
-    await Food.create(foodData(userA.userId, { name: 'Alis milk' }));
-    await Food.create(foodData(userB.userId, { name: 'Sams milk' }));
+    const userA = await signupAndLogin('ali');
+    const userB = await signupAndLogin('sam');
+    await Food.create(foodData(userA.userId, { name: "Ali's milk" }));
+    await Food.create(foodData(userB.userId, { name: "Sam's milk" }));
 
     const res = await request(app).get('/food').set(auth(userA.token));
 
     expect(res.statusCode).toBe(200);
     expect(res.body).toHaveLength(1);
-    expect(res.body[0].name).toBe('Alis milk');
+    expect(res.body[0].name).toBe("Ali's milk");
   });
 });

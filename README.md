@@ -1,6 +1,8 @@
 # Simpan API
 
-A backend API for tracking food expiry, built with Express and MongoDB.
+A backend API for tracking food items and their expiry dates, built with Express and MongoDB. Users can log in, manage their own food inventory, and get notified about what's expiring soon.
+
+![CI](https://github.com/alinabilali/simpan-api/actions/workflows/ci.yml/badge.svg)
 
 ## Tech stack
 
@@ -12,13 +14,13 @@ A backend API for tracking food expiry, built with Express and MongoDB.
 
 ## Running locally
 
-\`\`\`bash
+```bash
 npm install
 docker compose up --build
-\`\`\`
+```
 
 ## Tests
 
-\`\`\`bash
+```bash
 npm test
-\`\`\`
+```

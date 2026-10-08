@@ -2,12 +2,13 @@ const User = require('../models/User');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const asyncHandler = require('express-async-handler');
+const transporter = require('../config/mailer');
 
 // @desc Login
 // @route POST /auth
 // @access Public
 const login = asyncHandler(async (req, res) => {
-  const { id, username, password, name } = req.body;
+  const { username, password } = req.body;
 
   if (!username || !password) {
     return res.status(400).json({ message: 'All fields are required' });
@@ -116,37 +117,35 @@ const forgotPassword = asyncHandler(async (req, res) => {
 
   const foundUser = await User.findOne({ email }).exec();
 
+  // Always respond the same way whether or not the email exists —
+  // this avoids leaking which emails are registered
   if (!foundUser) {
-    return res.status(404).json({ message: 'User not found' });
+    return res.json({
+      message: 'If that email exists, a reset link has been sent',
+    });
   }
 
-  // Generate a reset token
   const resetToken = jwt.sign(
     { userId: foundUser.id },
     process.env.RESET_TOKEN_SECRET,
     { expiresIn: '1h' },
   );
 
-  // Create the password reset URL
-  const resetUrl = `https://localhost:3000/reset-password/${resetToken}`;
+  const resetUrl = `${process.env.CLIENT_URL}/reset-password/${resetToken}`;
 
-  // Compose the email
-  const mailOptions = {
-    from: 'simpan.app.mail@gmail.com',
-    to: email,
-    subject: 'Password Reset',
-    text: `Please click the following link to reset your password: ${resetUrl}`,
-  };
+  try {
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: 'Password Reset',
+      text: `Please click the following link to reset your password: ${resetUrl}`,
+    });
 
-  // Send the email
-  transporter.sendMail(mailOptions, (error, info) => {
-    if (error) {
-      console.log('Error sending email:', error);
-      return res.status(500).json({ message: 'Failed to send email' });
-    }
-    console.log('Email sent:', info.response);
-    res.json({ message: 'Password reset email sent' });
-  });
+    res.json({ message: 'If that email exists, a reset link has been sent' });
+  } catch (error) {
+    console.error('Error sending email:', error);
+    res.status(500).json({ message: 'Failed to send email' });
+  }
 });
 
 // @desc Signup

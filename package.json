@@ -13,6 +13,9 @@
     "setupFiles": [
       "<rootDir>/tests/setEnv.js"
     ],
+    "setupFilesAfterEnv": [
+      "<rootDir>/tests/setupMocks.js"
+    ],
     "testTimeout": 120000
   },
   "keywords": [],

@@ -23,8 +23,9 @@ exports.disconnect = async () => {
 
 exports.auth = (token) => ({ Authorization: `Bearer ${token}` });
 
-exports.signupAndLogin = async (username = 'ali') => {
-  await request(app)
+// Signs up and marks the user verified, without logging in
+const createVerifiedUser = async (username, extra = {}) => {
+  const res = await request(app)
     .post('/auth/signup')
     .send({
       username,
@@ -33,32 +34,38 @@ exports.signupAndLogin = async (username = 'ali') => {
       email: `${username}@example.com`,
     });
 
-  const res = await request(app).post('/auth').send({
-    username,
-    password: 'Passw0rd!',
-  });
+  if (res.statusCode !== 201) {
+    throw new Error(
+      `signup failed for "${username}": ${res.statusCode} ${JSON.stringify(res.body)}`,
+    );
+  }
+
+  await User.findOneAndUpdate({ username }, { verified: true, ...extra });
+};
+
+const login = async (username) => {
+  const res = await request(app)
+    .post('/auth')
+    .send({ username, password: 'Passw0rd!' });
+
+  if (!res.body.accessToken) {
+    throw new Error(
+      `login failed for "${username}": ${res.statusCode} ${JSON.stringify(res.body)}`,
+    );
+  }
 
   const user = await User.findOne({ username });
   return { token: res.body.accessToken, userId: user._id.toString() };
 };
 
+exports.createVerifiedUser = createVerifiedUser;
+
+exports.signupAndLogin = async (username = 'ali') => {
+  await createVerifiedUser(username);
+  return login(username);
+};
+
 exports.signupAndLoginAsAdmin = async (username = 'admin1') => {
-  await request(app)
-    .post('/auth/signup')
-    .send({
-      username,
-      password: 'Passw0rd!',
-      name: username,
-      email: `${username}@example.com`,
-    });
-
-  await User.findOneAndUpdate({ username }, { role: 'admin' });
-
-  const res = await request(app).post('/auth').send({
-    username,
-    password: 'Passw0rd!',
-  });
-
-  const user = await User.findOne({ username });
-  return { token: res.body.accessToken, userId: user._id.toString() };
+  await createVerifiedUser(username, { role: 'admin' });
+  return login(username);
 };
